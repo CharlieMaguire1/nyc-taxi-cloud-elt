@@ -124,7 +124,7 @@ SELECT
 FROM NYC_TAXI_ELT.RAW.YELLOW_TAXI_TRIPS
 LIMIT 5;
 
--- 17. Inspection of timestamp boundaries
+-- 17a. Inspection of timestamp boundaries
 -- Observed minimum pickup timestamp: 2008-12-31 23:01:42.000
 -- Investigate as a potential source data anomaly
 -- Do not modify RAW records during investigation
@@ -132,4 +132,32 @@ SELECT
     MIN("tpep_pickup_datetime") AS min_pickup_datetime,
     MAX("tpep_pickup_datetime") AS max_pickup_datetime
 FROM NYC_TAXI_ELT.RAW.YELLOW_TAXI_TRIPS;
+
+-- 17b. Count records before 2023-02-01 00:56:53.000
+-- And count records on or after 2008-12-31 23:01:42.000
+SELECT COUNT(*) AS pickups_out_of_period
+FROM NYC_TAXI_ELT.RAW.YELLOW_TAXI_TRIPS
+WHERE "tpep_pickup_datetime" < '2023-01-01 00:00:00.000'
+    OR "tpep_pickup_datetime" >= '2023-02-01 00:00:00.000'
+
+-- 17c. Conditional aggregation to categorise out-of-period pickups
+-- Verified results: 38 early pickups, 10 late pickups
+-- Decision: preserve all records in RAW for downstream data quality assessment
+SELECT
+    SUM(
+        CASE
+            WHEN "tpep_pickup_datetime" < '2023-01-01 00:00:00.000'
+            THEN 1
+            ELSE 0
+        END
+    ) AS early_pickups,
+    SUM(
+        CASE
+            WHEN "tpep_pickup_datetime" >= '2023-02-01 00:00:00.000'
+            THEN 1
+            ELSE 0
+        END
+    ) AS late_pickups
+FROM NYC_TAXI_ELT.RAW.YELLOW_TAXI_TRIPS;
+
 
